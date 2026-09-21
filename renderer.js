@@ -30,6 +30,8 @@ const state = {
   noiseSource: null,
   noiseGain: null,
   undoSnapshot: null,
+  pendingImport: null,
+  pendingImportName: '',
   timerSeconds: 40 * 60,
   timerRunning: false,
   timerHandle: null
@@ -61,7 +63,12 @@ const els = {
   detailNotes: document.querySelector('#detailNotes'),
   subtaskList: document.querySelector('#subtaskList'),
   dataModal: document.querySelector('#dataModal'),
+  dropZone: document.querySelector('#dropZone'),
+  fileInput: document.querySelector('#fileInput'),
   dataText: document.querySelector('#dataText'),
+  importMode: document.querySelector('#importMode'),
+  skipDuplicates: document.querySelector('#skipDuplicates'),
+  importPreview: document.querySelector('#importPreview'),
   importMessage: document.querySelector('#importMessage'),
   timerDisplay: document.querySelector('#timerDisplay'),
   timerStart: document.querySelector('#timerStart'),
@@ -345,9 +352,9 @@ function renderTags() {
   els.tagList.innerHTML = tags.length ? tags.map((tag) => `<button class="tag-chip" data-tag="${escapeHtml(tag)}">#${escapeHtml(tag)}</button>`).join('') : '<span style="color:#a8b1b2;font-size:11px;padding:0 2px">还没有标签</span>';
 }
 
-function addTask(rawTitle) {
-  const title = rawTitle.trim();
-  if (!title) return;
+function parseTaskInput(rawTitle, category = state.selectedCategory === '全部' ? '未分类' : state.selectedCategory, done = false) {
+  const title = String(rawTitle || '').trim();
+  if (!title) return null;
   let due = dayKey(0);
   let dueTime = '';
   let repeat = '';
@@ -385,7 +392,13 @@ function addTask(rawTitle) {
   const tagMatch = cleanTitle.match(/#([^\s#]+)/);
   const tag = tagMatch ? tagMatch[1] : state.selectedCategory === '工作' ? '待办' : state.selectedCategory;
   cleanTitle = cleanTitle.replace(/#([^\s#]+)/, '').trim();
-  state.tasks.unshift({ id: crypto.randomUUID(), title: cleanTitle, category: state.selectedCategory === '全部' ? '未分类' : state.selectedCategory, tag, due, dueTime, repeat, priority, done: false, createdAt: new Date().toISOString(), subtasks: [] });
+  return { id: crypto.randomUUID(), title: cleanTitle || title, category, tag, due, dueTime, repeat, priority, done, createdAt: new Date().toISOString(), subtasks: [] };
+}
+
+function addTask(rawTitle) {
+  const task = parseTaskInput(rawTitle);
+  if (!task) return;
+  state.tasks.unshift(task);
   save(); render(); showToast('已添加任务');
 }
 
@@ -435,6 +448,10 @@ function exportJson() {
 
 function openDataModal() {
   els.dataText.value = exportJson();
+  state.pendingImport = null;
+  state.pendingImportName = '';
+  els.importPreview.textContent = '等待内容';
+  els.importPreview.classList.remove('error');
   els.importMessage.textContent = '你可以直接修改这段 JSON 后导入。';
   els.importMessage.classList.remove('success');
   els.dataModal.classList.remove('hidden');
@@ -445,22 +462,113 @@ function closeDataModal() {
   els.dataModal.classList.add('hidden');
 }
 
-function parseImportText(raw) {
-  let text = raw.trim();
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced) text = fenced[1].trim();
-  const parsed = JSON.parse(text);
+function previewImportText(raw, fileName = '') {
+  try {
+    const parsed = parseImportText(raw, fileName);
+    state.pendingImport = parsed;
+    state.pendingImportName = fileName;
+    const names = parsed.tasks.slice(0, 3).map((task) => task.title).join('、');
+    els.importPreview.textContent = `已识别 ${parsed.tasks.length} 个任务${names ? `：${names}${parsed.tasks.length > 3 ? '…' : ''}` : ''}`;
+    els.importPreview.classList.remove('error');
+    els.importMessage.textContent = fileName ? `已读取 ${fileName}` : '解析成功，可以导入。';
+    els.importMessage.classList.add('success');
+  } catch (error) {
+    state.pendingImport = null;
+    els.importPreview.textContent = `无法识别：${error.message || '格式不正确'}`;
+    els.importPreview.classList.add('error');
+    els.importMessage.textContent = '请检查内容，或换用 JSON / Markdown / TXT 文件。';
+    els.importMessage.classList.remove('success');
+  }
+}
+
+async function readImportFile(file) {
+  if (!file) return;
+  const allowed = /\.(json|md|markdown|txt|csv)$/i.test(file.name) || /json|markdown|text|csv/.test(file.type);
+  if (!allowed) { previewImportText('', file.name); return; }
+  els.dataText.value = await file.text();
+  previewImportText(els.dataText.value, file.name);
+}
+
+function parseCsvLine(line) {
+  const values = [];
+  let value = '';
+  let quoted = false;
+  for (const char of line) {
+    if (char === '"') quoted = !quoted;
+    else if (char === ',' && !quoted) { values.push(value.trim()); value = ''; }
+    else value += char;
+  }
+  values.push(value.trim());
+  return values;
+}
+
+function normalizeImportedTask(item, index) {
+  if (!item || typeof item !== 'object') throw new Error(`第 ${index + 1} 个任务不是对象`);
+  const title = typeof item.title === 'string' ? item.title : typeof item.name === 'string' ? item.name : typeof item.task === 'string' ? item.task : '';
+  if (!title.trim()) throw new Error(`第 ${index + 1} 个任务缺少 title`);
+  const category = typeof item.category === 'string' && item.category.trim() ? item.category.trim() : '未分类';
+  const task = parseTaskInput(title, category, Boolean(item.done));
+  task.due = typeof item.due === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.due) ? item.due : task.due;
+  task.dueTime = typeof item.dueTime === 'string' && /^\d{2}:\d{2}$/.test(item.dueTime) ? item.dueTime : task.dueTime;
+  task.tag = typeof item.tag === 'string' && item.tag.trim() ? item.tag.trim() : task.tag;
+  task.repeat = item.repeat === undefined ? task.repeat : normalizeRepeat(item.repeat);
+  task.priority = item.priority === undefined ? task.priority : priorityValue(item.priority);
+  task.notes = typeof item.notes === 'string' ? item.notes : '';
+  task.reminderAt = typeof item.reminderAt === 'string' ? item.reminderAt : '';
+  task.createdAt = typeof item.createdAt === 'string' ? item.createdAt : task.createdAt;
+  task.subtasks = Array.isArray(item.subtasks) ? item.subtasks.filter((subtask) => subtask && typeof (subtask.title || subtask.name) === 'string').map((subtask) => ({ id: crypto.randomUUID(), title: String(subtask.title || subtask.name).trim(), done: Boolean(subtask.done) })) : [];
+  return task;
+}
+
+function extractJson(text) {
+  const fenced = text.match(/```(?:json|javascript|js)?\s*([\s\S]*?)```/i);
+  const candidates = [fenced ? fenced[1].trim() : '', text.trim()];
+  const objectStart = text.search(/[\[{]/);
+  const objectEnd = Math.max(text.lastIndexOf('}'), text.lastIndexOf(']'));
+  if (objectStart >= 0 && objectEnd > objectStart) candidates.push(text.slice(objectStart, objectEnd + 1));
+  for (const candidate of candidates.filter(Boolean)) {
+    try { return JSON.parse(candidate); } catch { /* try the next representation */ }
+  }
+  return null;
+}
+
+function parseTextImport(text, fileName = '') {
+  const rawLines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (!rawLines.length) throw new Error('没有找到可导入的内容');
+  let lines = rawLines;
+  const isCsv = /\.csv$/i.test(fileName) || (rawLines[0].toLowerCase().includes('title') && rawLines[0].includes(','));
+  if (isCsv) {
+    const header = parseCsvLine(rawLines[0]).map((value) => value.toLowerCase());
+    const titleIndex = Math.max(header.indexOf('title'), header.indexOf('task'), header.indexOf('name'));
+    if (titleIndex >= 0) {
+      const rows = rawLines.slice(1).map((line) => parseCsvLine(line));
+      const tasks = rows.filter((row) => row[titleIndex]).map((row) => normalizeImportedTask({ title: row[titleIndex], category: row[header.indexOf('category')], tag: row[header.indexOf('tag')], due: row[header.indexOf('due')], dueTime: row[header.indexOf('duetime')], priority: row[header.indexOf('priority')], done: row[header.indexOf('done')]?.toLowerCase() === 'true' }, 0));
+      return { categories: [], tasks };
+    }
+  }
+  const tasks = [];
+  for (const line of lines) {
+    if (/^#{1,6}\s/.test(line) || /^---+$/.test(line)) continue;
+    const checkbox = line.match(/^[-*]\s*\[([ xX])\]\s*(.+)$/);
+    const bullet = line.match(/^(?:[-*]|\d+[.)])\s+(.+)$/);
+    const content = checkbox?.[2] || bullet?.[1] || (!line.startsWith('#') ? line : '');
+    if (!content) continue;
+    tasks.push(parseTaskInput(content, '未分类', Boolean(checkbox && checkbox[1].toLowerCase() === 'x')));
+  }
+  if (!tasks.length) throw new Error('没有识别到任务行');
+  return { categories: [], tasks: tasks.filter(Boolean) };
+}
+
+function parseImportText(raw, fileName = '') {
+  const text = String(raw || '').replace(/^\uFEFF/, '').trim();
+  if (!text) throw new Error('导入内容为空');
+  const parsed = extractJson(text);
+  if (!parsed) return parseTextImport(text, fileName);
   const sourceTasks = Array.isArray(parsed) ? parsed : parsed?.tasks;
   if (!Array.isArray(sourceTasks)) throw new Error('未找到 tasks 数组');
   if (sourceTasks.length > 1000) throw new Error('一次最多导入 1000 个任务');
   const categories = Array.isArray(parsed?.categories) ? parsed.categories.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim()) : [];
-  const tasks = sourceTasks.map((item, index) => {
-    if (!item || typeof item !== 'object' || typeof item.title !== 'string' || !item.title.trim()) throw new Error(`第 ${index + 1} 个任务缺少 title`);
-    const due = typeof item.due === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.due) ? item.due : dayKey(0);
-    const category = typeof item.category === 'string' && item.category.trim() ? item.category.trim() : '未分类';
-    return { id: crypto.randomUUID(), title: item.title.trim(), category, tag: typeof item.tag === 'string' && item.tag.trim() ? item.tag.trim() : category, due, dueTime: typeof item.dueTime === 'string' && /^\d{2}:\d{2}$/.test(item.dueTime) ? item.dueTime : '', repeat: normalizeRepeat(item.repeat), priority: priorityValue(item.priority), done: Boolean(item.done), notes: typeof item.notes === 'string' ? item.notes : '', reminderAt: typeof item.reminderAt === 'string' ? item.reminderAt : '', createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(), subtasks: Array.isArray(item.subtasks) ? item.subtasks.filter((subtask) => subtask && typeof subtask.title === 'string').map((subtask) => ({ id: crypto.randomUUID(), title: subtask.title.trim(), done: Boolean(subtask.done) })) : [] };
-  });
-  return { categories, tasks };
+  return { categories, tasks: sourceTasks.map(normalizeImportedTask) };
 }
 
 async function copyExportJson() {
@@ -480,16 +588,22 @@ function downloadExportJson() {
 
 function importJson() {
   try {
-    const imported = parseImportText(els.dataText.value);
+    const imported = state.pendingImport || parseImportText(els.dataText.value, state.pendingImportName);
+    if (!imported.tasks.length) throw new Error('没有可导入的任务');
     state.undoSnapshot = { tasks: state.tasks, categories: state.categories };
     const mergedCategories = [...new Set([...state.categories, ...imported.categories, ...imported.tasks.map((task) => task.category)])];
     state.categories = mergedCategories.length ? mergedCategories : state.categories;
-    state.tasks = imported.tasks;
+    const oldTasks = els.importMode.value === 'replace' ? [] : state.tasks;
+    const duplicateKeys = new Set(oldTasks.map((task) => `${task.title}::${task.due}::${task.category}`));
+    const incoming = els.skipDuplicates.checked ? imported.tasks.filter((task) => !duplicateKeys.has(`${task.title}::${task.due}::${task.category}`)) : imported.tasks;
+    state.tasks = [...oldTasks, ...incoming];
     state.selectedCategory = '全部';
     save(); render();
-    els.importMessage.textContent = `已导入 ${imported.tasks.length} 个任务`;
+    state.pendingImport = null;
+    const skipped = imported.tasks.length - incoming.length;
+    els.importMessage.textContent = `已导入 ${incoming.length} 个任务${skipped ? `，跳过 ${skipped} 个重复项` : ''}`;
     els.importMessage.classList.add('success');
-    showToast(`已导入 ${imported.tasks.length} 个任务`, '撤销', undoImport);
+    showToast(`已导入 ${incoming.length} 个任务${skipped ? `，跳过 ${skipped} 个重复项` : ''}`, '撤销', undoImport);
   } catch (error) {
     els.importMessage.textContent = `导入失败：${error.message || 'JSON 格式不正确'}`;
     els.importMessage.classList.remove('success');
@@ -603,6 +717,13 @@ document.querySelector('#closeDataBtn').addEventListener('click', closeDataModal
 document.querySelector('#copyExportBtn').addEventListener('click', copyExportJson);
 document.querySelector('#downloadExportBtn').addEventListener('click', downloadExportJson);
 document.querySelector('#importBtn').addEventListener('click', importJson);
+els.dropZone.addEventListener('click', () => els.fileInput.click());
+els.dropZone.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') els.fileInput.click(); });
+els.fileInput.addEventListener('change', (event) => readImportFile(event.target.files[0]));
+['dragenter', 'dragover'].forEach((eventName) => els.dropZone.addEventListener(eventName, (event) => { event.preventDefault(); els.dropZone.classList.add('dragover'); }));
+['dragleave', 'drop'].forEach((eventName) => els.dropZone.addEventListener(eventName, (event) => { event.preventDefault(); els.dropZone.classList.remove('dragover'); }));
+els.dropZone.addEventListener('drop', (event) => readImportFile(event.dataTransfer.files[0]));
+els.dataText.addEventListener('input', () => previewImportText(els.dataText.value, ''));
 els.dataModal.addEventListener('click', (event) => { if (event.target === els.dataModal) closeDataModal(); });
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !els.dataModal.classList.contains('hidden')) closeDataModal(); if (event.key === 'Escape' && !els.detailDrawer.classList.contains('hidden')) closeDetail(); });
 els.categoryList.addEventListener('click', (event) => { const button = event.target.closest('[data-category]'); if (!button) return; state.selectedCategory = button.dataset.category; render(); });

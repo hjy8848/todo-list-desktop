@@ -130,13 +130,15 @@
           <div><p class="eyebrow">PORTABLE DATA</p><h2 id="dataModalTitle">导入 / 导出 Todo 数据</h2></div>
           <button id="closeDataBtn" class="modal-close" aria-label="关闭">×</button>
         </div>
-        <p class="modal-description">使用 JSON 保存任务。你可以让 AI 按下方格式生成任务，再粘贴到这里导入；也支持直接粘贴 <code>```json</code> 代码块。</p>
+        <p class="modal-description">支持 JSON、AI 的 <code>```json</code> 代码块、Markdown 任务列表、普通文本和基础 CSV。导入前会先解析预览，不会直接覆盖。</p>
         <div class="data-actions">
           <button id="copyExportBtn" class="soft-btn">复制当前 JSON</button>
           <button id="downloadExportBtn" class="soft-btn">下载 .json 文件</button>
         </div>
-        <textarea id="dataText" class="data-textarea" spellcheck="false" placeholder="在这里粘贴 JSON 或 ```json 代码块"></textarea>
+        <div id="dropZone" class="data-drop-zone" tabindex="0"><input id="fileInput" type="file" accept=".json,.md,.markdown,.txt,.csv,application/json,text/markdown,text/plain,text/csv" hidden /><div class="drop-icon">⇧</div><div><strong>拖拽文件到这里</strong><span>或点击选择 .json / .md / .txt / .csv</span></div></div>
+        <textarea id="dataText" class="data-textarea" spellcheck="false" placeholder="也可以直接粘贴 JSON、Markdown 任务列表或普通文本"></textarea>
         <div class="schema-hint"><span>格式示例</span><code>{ "format": "todo-list", "version": 1, "tasks": [...] }</code></div>
+        <div class="import-options"><label>导入方式<select id="importMode" class="compact-select"><option value="merge">追加到当前清单</option><option value="replace">覆盖当前清单</option></select></label><label class="check-option"><input id="skipDuplicates" type="checkbox" checked /> 跳过重复任务</label><span id="importPreview" class="import-preview">等待内容</span></div>
         <div class="modal-footer">
           <span id="importMessage" class="import-message"></span>
           <button id="importBtn" class="primary-btn">导入到 Todo清单</button>
