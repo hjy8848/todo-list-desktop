@@ -60,6 +60,7 @@
               <h1 id="pageTitle">Day Todo</h1>
             </div>
             <div class="heading-actions">
+              <button id="dataBtn" class="soft-btn">⇄ 导入 / 导出</button>
               <button id="filterBtn" class="soft-btn">☷ 筛选</button>
               <button id="sortBtn" class="soft-btn">↕ 排序</button>
             </div>
@@ -97,6 +98,25 @@
           </div>
         </section>
       </main>
+    </div>
+    <div id="dataModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="dataModalTitle">
+      <section class="modal-card">
+        <div class="modal-header">
+          <div><p class="eyebrow">PORTABLE DATA</p><h2 id="dataModalTitle">导入 / 导出 Todo 数据</h2></div>
+          <button id="closeDataBtn" class="modal-close" aria-label="关闭">×</button>
+        </div>
+        <p class="modal-description">使用 JSON 保存任务。你可以让 AI 按下方格式生成任务，再粘贴到这里导入；也支持直接粘贴 <code>```json</code> 代码块。</p>
+        <div class="data-actions">
+          <button id="copyExportBtn" class="soft-btn">复制当前 JSON</button>
+          <button id="downloadExportBtn" class="soft-btn">下载 .json 文件</button>
+        </div>
+        <textarea id="dataText" class="data-textarea" spellcheck="false" placeholder="在这里粘贴 JSON 或 ```json 代码块"></textarea>
+        <div class="schema-hint"><span>格式示例</span><code>{ "format": "todo-list", "version": 1, "tasks": [...] }</code></div>
+        <div class="modal-footer">
+          <span id="importMessage" class="import-message"></span>
+          <button id="importBtn" class="primary-btn">导入到 Todo清单</button>
+        </div>
+      </section>
     </div>
     <div id="toast" class="toast" role="status"></div>
     <script src="renderer.js"></script>

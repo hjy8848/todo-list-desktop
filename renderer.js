@@ -40,6 +40,9 @@ const els = {
   inboxCount: document.querySelector('#inboxCount'),
   todayCompleted: document.querySelector('#todayCompleted'),
   filterPanel: document.querySelector('#filterPanel'),
+  dataModal: document.querySelector('#dataModal'),
+  dataText: document.querySelector('#dataText'),
+  importMessage: document.querySelector('#importMessage'),
   timerDisplay: document.querySelector('#timerDisplay'),
   timerStart: document.querySelector('#timerStart'),
   timerIcon: document.querySelector('#timerIcon'),
@@ -175,6 +178,82 @@ function showToast(message) {
   clearTimeout(showToast.timer); showToast.timer = setTimeout(() => els.toast.classList.remove('show'), 1600);
 }
 
+function buildExportPayload() {
+  return {
+    format: 'todo-list',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    categories: state.categories,
+    tasks: state.tasks.map(({ title, category, tag, due, repeat, done }) => ({ title, category, tag, due, repeat, done }))
+  };
+}
+
+function exportJson() {
+  return JSON.stringify(buildExportPayload(), null, 2);
+}
+
+function openDataModal() {
+  els.dataText.value = exportJson();
+  els.importMessage.textContent = '你可以直接修改这段 JSON 后导入。';
+  els.importMessage.classList.remove('success');
+  els.dataModal.classList.remove('hidden');
+  els.dataText.focus();
+}
+
+function closeDataModal() {
+  els.dataModal.classList.add('hidden');
+}
+
+function parseImportText(raw) {
+  let text = raw.trim();
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced) text = fenced[1].trim();
+  const parsed = JSON.parse(text);
+  const sourceTasks = Array.isArray(parsed) ? parsed : parsed?.tasks;
+  if (!Array.isArray(sourceTasks)) throw new Error('未找到 tasks 数组');
+  if (sourceTasks.length > 1000) throw new Error('一次最多导入 1000 个任务');
+  const categories = Array.isArray(parsed?.categories) ? parsed.categories.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim()) : [];
+  const tasks = sourceTasks.map((item, index) => {
+    if (!item || typeof item !== 'object' || typeof item.title !== 'string' || !item.title.trim()) throw new Error(`第 ${index + 1} 个任务缺少 title`);
+    const due = typeof item.due === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.due) ? item.due : dayKey(0);
+    const category = typeof item.category === 'string' && item.category.trim() ? item.category.trim() : '未分类';
+    return { id: crypto.randomUUID(), title: item.title.trim(), category, tag: typeof item.tag === 'string' && item.tag.trim() ? item.tag.trim() : category, due, repeat: Boolean(item.repeat), done: Boolean(item.done) };
+  });
+  return { categories, tasks };
+}
+
+async function copyExportJson() {
+  const text = exportJson();
+  els.dataText.value = text;
+  try { await navigator.clipboard.writeText(text); showToast('JSON 已复制到剪贴板'); }
+  catch { els.dataText.select(); document.execCommand('copy'); showToast('JSON 已复制到剪贴板'); }
+}
+
+function downloadExportJson() {
+  const blob = new Blob([exportJson()], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = `todo-list-${dayKey(0)}.json`; link.click();
+  URL.revokeObjectURL(url); showToast('JSON 文件已准备下载');
+}
+
+function importJson() {
+  try {
+    const imported = parseImportText(els.dataText.value);
+    const mergedCategories = [...new Set([...state.categories, ...imported.categories, ...imported.tasks.map((task) => task.category)])];
+    state.categories = mergedCategories.length ? mergedCategories : state.categories;
+    state.tasks = imported.tasks;
+    state.selectedCategory = '全部';
+    save(); render();
+    els.importMessage.textContent = `已导入 ${imported.tasks.length} 个任务`;
+    els.importMessage.classList.add('success');
+    showToast(`已导入 ${imported.tasks.length} 个任务`);
+  } catch (error) {
+    els.importMessage.textContent = `导入失败：${error.message || 'JSON 格式不正确'}`;
+    els.importMessage.classList.remove('success');
+  }
+}
+
 function renderTimer() {
   const minutes = String(Math.floor(state.timerSeconds / 60)).padStart(2, '0');
   const seconds = String(state.timerSeconds % 60).padStart(2, '0');
@@ -193,6 +272,13 @@ function toggleTimer() {
 els.quickAdd.addEventListener('keydown', (event) => { if (event.key === 'Enter') { addTask(els.quickAdd.value); els.quickAdd.value = ''; } });
 els.sidebarSearch.addEventListener('input', (event) => { state.search = event.target.value; render(); });
 els.taskGroups.addEventListener('click', handleTaskAction);
+document.querySelector('#dataBtn').addEventListener('click', openDataModal);
+document.querySelector('#closeDataBtn').addEventListener('click', closeDataModal);
+document.querySelector('#copyExportBtn').addEventListener('click', copyExportJson);
+document.querySelector('#downloadExportBtn').addEventListener('click', downloadExportJson);
+document.querySelector('#importBtn').addEventListener('click', importJson);
+els.dataModal.addEventListener('click', (event) => { if (event.target === els.dataModal) closeDataModal(); });
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !els.dataModal.classList.contains('hidden')) closeDataModal(); });
 els.categoryList.addEventListener('click', (event) => { const button = event.target.closest('[data-category]'); if (!button) return; state.selectedCategory = button.dataset.category; render(); });
 els.tagList.addEventListener('click', (event) => { const button = event.target.closest('[data-tag]'); if (!button) return; els.sidebarSearch.value = button.dataset.tag; state.search = button.dataset.tag; render(); });
 document.querySelectorAll('.nav-item').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('.nav-item').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.selectedView = button.dataset.view; if (state.selectedView === 'inbox') state.selectedCategory = '全部'; render(); }));
