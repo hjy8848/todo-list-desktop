@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Todo清单</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="profile-row">
+          <div class="avatar">YL</div>
+          <div class="profile-name">Todo清单</div>
+          <button class="icon-btn" title="同步" aria-label="同步">↻</button>
+          <button class="icon-btn" title="更多" aria-label="更多">⋮</button>
+          <span class="online-dot"></span>
+        </div>
+
+        <label class="search-box sidebar-search">
+          <span>⌕</span>
+          <input id="sidebarSearch" type="search" placeholder="搜索" />
+        </label>
+
+        <nav class="primary-nav" aria-label="主导航">
+          <button class="nav-item active" data-view="day"><span class="nav-icon sun">☀</span><span>Day Todo</span></button>
+          <button class="nav-item" data-view="recent"><span class="nav-icon blue">▣</span><span>最近待办</span></button>
+          <button class="nav-item" data-view="calendar"><span class="nav-icon orange">▦</span><span>日程概览</span></button>
+          <button class="nav-item" data-view="inbox"><span class="nav-icon green">▱</span><span>待办箱</span><span id="inboxCount" class="nav-count"></span></button>
+          <button class="nav-item" data-view="review"><span class="nav-icon purple">✣</span><span>数据复盘</span></button>
+        </nav>
+
+        <div class="sidebar-divider"></div>
+        <div class="side-section-title"><span>分类</span><button id="addCategoryBtn" class="tiny-add" title="新建分类">＋</button></div>
+        <div id="categoryList" class="category-list"></div>
+
+        <div class="sidebar-divider lower-divider"></div>
+        <div class="side-section-title"><span>标签</span><span class="collapse-chevron">⌃</span></div>
+        <div id="tagList" class="tag-list"></div>
+
+        <div class="sidebar-footer">
+          <span class="keyboard-hint">⌘ K</span>
+          <span>快速添加</span>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div class="quick-add-wrap">
+            <span class="quick-add-plus">＋</span>
+            <input id="quickAdd" type="text" autocomplete="off" placeholder="在此添加内容，按回车创建事件" />
+          </div>
+          <button id="topMoreBtn" class="icon-btn top-more" title="更多操作">⋮</button>
+        </header>
+
+        <section class="content-scroll">
+          <div class="content-heading">
+            <div>
+              <p class="eyebrow" id="dateEyebrow">TODAY</p>
+              <h1 id="pageTitle">Day Todo</h1>
+            </div>
+            <div class="heading-actions">
+              <button id="filterBtn" class="soft-btn">☷ 筛选</button>
+              <button id="sortBtn" class="soft-btn">↕ 排序</button>
+            </div>
+          </div>
+
+          <div id="filterPanel" class="filter-panel hidden">
+            <button class="filter-chip active" data-filter="all">全部</button>
+            <button class="filter-chip" data-filter="open">未完成</button>
+            <button class="filter-chip" data-filter="done">已完成</button>
+            <button class="filter-chip" data-filter="工作">工作</button>
+            <button class="filter-chip" data-filter="生活">生活</button>
+          </div>
+
+          <div id="taskGroups" class="task-groups"></div>
+
+          <div id="emptyState" class="empty-state hidden">
+            <div class="empty-icon">✓</div>
+            <h2>这里暂时没有任务</h2>
+            <p>在上方输入框中写下你要做的事，按回车即可添加。</p>
+          </div>
+        </section>
+
+        <section class="focus-bar">
+          <div class="focus-caption">
+            <span class="focus-label">待开始</span>
+            <span class="focus-completed">☷ 今日需完成：<strong id="todayCompleted">0</strong></span>
+          </div>
+          <div class="focus-timer-wrap">
+            <span id="timerDisplay" class="timer-display">40:00</span>
+            <button id="timerReset" class="timer-label">白噪音</button>
+          </div>
+          <div class="focus-actions">
+            <button id="timerStart" class="focus-start"><span id="timerIcon">▶</span><span id="timerText">番茄专注</span></button>
+            <button id="timerStop" class="timer-stop" title="重置计时">↺</button>
+          </div>
+        </section>
+      </main>
+    </div>
+    <div id="toast" class="toast" role="status"></div>
+    <script src="renderer.js"></script>
+  </body>
+</html>

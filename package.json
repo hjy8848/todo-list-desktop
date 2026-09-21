@@ -1,0 +1,13 @@
+{
+  "name": "todo-list-desktop",
+  "version": "1.0.0",
+  "description": "一个简洁的 Todo 清单桌面应用",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^37.3.1"
+  }
+}
