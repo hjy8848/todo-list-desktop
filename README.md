@@ -9,6 +9,14 @@ npm install
 npm start
 ```
 
+## 构建 Windows 应用
+
+```powershell
+npm run dist
+```
+
+构建完成后，`dist/Todo清单-1.0.0-x64.exe` 是免安装便携版，双击即可打开，不需要 Node.js 或 npm。`npm run dist:installer` 可生成带桌面快捷方式的安装版。
+
 任务和分类会保存在 Electron 的本地存储中。支持：
 
 - 回车快速添加任务；输入 `明天` / `后天` 自动设置日期；使用 `#标签` 添加标签
