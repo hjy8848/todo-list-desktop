@@ -12,8 +12,8 @@
         <div class="profile-row">
           <div class="avatar">YL</div>
           <div class="profile-name">Todo清单</div>
-          <button class="icon-btn" title="同步" aria-label="同步">↻</button>
-          <button class="icon-btn" title="更多" aria-label="更多">⋮</button>
+          <button id="syncBtn" class="icon-btn" title="同步" aria-label="同步">↻</button>
+          <button id="profileMoreBtn" class="icon-btn" title="更多" aria-label="更多">⋮</button>
           <span class="online-dot"></span>
         </div>
 
@@ -74,9 +74,13 @@
             <button class="filter-chip" data-filter="生活">生活</button>
             <button class="filter-chip" data-filter="p1">P1</button>
             <button class="filter-chip" data-filter="p2">P2</button>
+            <button class="filter-chip" data-filter="p3">P3</button>
+            <button class="filter-chip" data-filter="p4">P4</button>
           </div>
 
           <div id="taskGroups" class="task-groups"></div>
+          <div id="calendarView" class="special-view hidden"></div>
+          <div id="reviewView" class="special-view hidden"></div>
 
           <div id="emptyState" class="empty-state hidden">
             <div class="empty-icon">✓</div>
@@ -101,6 +105,25 @@
         </section>
       </main>
     </div>
+    <div id="detailDrawer" class="drawer-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+      <aside class="detail-drawer">
+        <div class="drawer-header"><div><p class="eyebrow">TASK DETAIL</p><h2 id="detailTitle">任务详情</h2></div><button id="closeDetailBtn" class="modal-close" aria-label="关闭">×</button></div>
+        <label class="field-label">任务名称<input id="detailTaskTitle" class="detail-input" /></label>
+        <div class="field-grid">
+          <label class="field-label">日期<input id="detailDue" class="detail-input" type="date" /></label>
+          <label class="field-label">时间<input id="detailDueTime" class="detail-input" type="time" /></label>
+          <label class="field-label">分类<select id="detailCategory" class="detail-input"></select></label>
+          <label class="field-label">优先级<select id="detailPriority" class="detail-input"><option value="4">P4 · 普通</option><option value="3">P3 · 较低</option><option value="2">P2 · 重要</option><option value="1">P1 · 紧急</option></select></label>
+          <label class="field-label">重复<select id="detailRepeat" class="detail-input"><option value="">不重复</option><option value="daily">每天</option><option value="weekdays">工作日</option><option value="weekly">每周</option><option value="monthly">每月</option><option value="yearly">每年</option></select></label>
+          <label class="field-label">提醒<input id="detailReminder" class="detail-input" type="datetime-local" /></label>
+        </div>
+        <label class="field-label">标签<input id="detailTag" class="detail-input" placeholder="例如：写作" /></label>
+        <label class="field-label">备注<textarea id="detailNotes" class="detail-textarea" placeholder="补充背景、链接或下一步"></textarea></label>
+        <div class="subtask-heading"><span>子任务</span><button id="addSubtaskBtn" class="tiny-add">＋ 添加</button></div>
+        <div id="subtaskList" class="subtask-list"></div>
+        <div class="drawer-footer"><button id="deleteDetailBtn" class="danger-btn">删除任务</button><button id="saveDetailBtn" class="primary-btn">保存修改</button></div>
+      </aside>
+    </div>
     <div id="dataModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="dataModalTitle">
       <section class="modal-card">
         <div class="modal-header">
@@ -120,7 +143,7 @@
         </div>
       </section>
     </div>
-    <div id="toast" class="toast" role="status"></div>
+    <div id="toast" class="toast" role="status"><span id="toastMessage"></span><button id="toastAction" class="toast-action hidden"></button></div>
     <script src="renderer.js"></script>
   </body>
 </html>
