@@ -94,12 +94,15 @@ h1 { margin: 0; color: #3a4b4e; font-size: 25px; font-weight: 650; letter-spacin
 .checkbox:hover { background: var(--teal-pale); }
 .task-row.done .checkbox { background: var(--teal); border-color: var(--teal); }
 .task-row.done .checkbox::after { content: '✓'; }
+.priority-flag { width: 18px; flex: 0 0 18px; padding: 0; margin-top: -2px; background: transparent; color: #c8d0d1; font-size: 18px; line-height: 1; }
+.priority-flag:hover { transform: scale(1.12); }
+.priority-1 { color: #ef625c; }.priority-2 { color: #ef9c3d; }.priority-3 { color: #4b9cda; }.priority-4 { color: #c6d0d1; }
 .task-body { min-width: 0; flex: 1; }
 .task-title { color: #435255; font-size: 14px; line-height: 1.25; cursor: text; }
 .task-row.done .task-title { color: #a2abad; text-decoration: line-through; }
 .task-meta { display: flex; align-items: center; gap: 7px; min-height: 18px; margin-top: 7px; }
 .task-tag { color: #16a3a4; background: #effafa; border-radius: 4px; padding: 3px 6px; font-size: 11px; }
-.repeat-icon { color: #16a3a4; font-size: 19px; line-height: 1; }
+.repeat-icon { color: #16a3a4; font-size: 11px; line-height: 1; }
 .task-date { margin-left: auto; color: #9ca8a9; white-space: nowrap; font-size: 12px; align-self: center; }
 .task-row.overdue .task-date { color: #a7adaf; }
 .delete-task { position: absolute; right: 14px; top: 10px; display: none; color: #b1babb; background: #fff; font-size: 17px; border-radius: 4px; padding: 1px 5px; }

@@ -12,7 +12,9 @@ npm start
 任务和分类会保存在 Electron 的本地存储中。支持：
 
 - 回车快速添加任务；输入 `明天` / `后天` 自动设置日期；使用 `#标签` 添加标签
+- 支持自然语言快速录入：`明天 14:00 完成周报 #写作 p1 每周`
 - 完成、删除、双击修改任务
+- 点击旗帜循环设置 P1-P4 优先级；重复任务完成后会自动排到下一次
 - 按分类、搜索关键词和完成状态筛选
 - 40 分钟番茄专注计时器
 
@@ -31,11 +33,13 @@ npm start
       "category": "工作",
       "tag": "写作",
       "due": "2026-09-21",
-      "repeat": false,
+      "dueTime": "14:00",
+      "priority": 1,
+      "repeat": "weekly",
       "done": false
     }
   ]
 }
 ```
 
-字段说明：`title` 必填；`category`、`tag`、`due`、`repeat`、`done` 可选。日期使用 `YYYY-MM-DD`，省略时默认安排到今天。导入会替换当前任务列表，分类会自动合并。
+字段说明：`title` 必填；`category`、`tag`、`due`、`dueTime`、`priority`、`repeat`、`done` 可选。日期使用 `YYYY-MM-DD`，时间使用 `HH:mm`；`priority` 为 1-4，`repeat` 可使用 `daily`、`weekdays`、`weekly`、`monthly`、`yearly`。导入会替换当前任务列表，分类会自动合并。
